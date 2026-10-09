@@ -9,7 +9,7 @@ import Hero from "../components/Hero/Hero";
 import Gallery from "../components/Hero/Gallery";
 import HowItWorks from "../components/Hero/HowItWorks";
 import Footer from "../components/layout/Footer";
-
+import Faq from "../components/Hero/Faq";
 export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
 
@@ -28,9 +28,8 @@ export default function Page() {
       <Gallery />
 
       <HowItWorks />
-
+      <Faq />
       <Footer />
     </main>
   );
 }
-
