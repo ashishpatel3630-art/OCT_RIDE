@@ -1,17 +1,11 @@
-import Navbar from "../../components/layout/Navbar";
-import Footer from "../../components/layout/Footer";
-import Find from "../../components/Find/Find";
+import React from 'react'
 
-export default function FindBusPage() {
+function FInd() {
   return (
-    <>
-      <Navbar />
-
-      <main>
-        <Find />
-      </main>
-
-      <Footer />
-    </>
-  );
+    <div>
+      
+    </div>
+  )
 }
+
+export default FInd

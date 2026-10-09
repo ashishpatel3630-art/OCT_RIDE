@@ -1,17 +1,11 @@
-import Navbar from "../../components/layout/Navbar";
-import Footer from "../../components/layout/Footer";
-import AboutPath from "../../components/About/AboutPath";
+import React from 'react'
 
-export default function AboutPage() {
+function AboutPath() {
   return (
-    <>
-      <Navbar />
-
-      <main>
-        <AboutPath />
-      </main>
-
-      <Footer />
-    </>
-  );
+    <div>
+      
+    </div>
+  )
 }
+
+export default AboutPath
