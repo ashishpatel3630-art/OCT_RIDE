@@ -10,27 +10,31 @@ title: "The OCT Campus",
 category: "CAMPUS LIFE",
 image: "/images/oriental-college.jpg",
 className: "md:col-span-2 md:row-span-2",
+imageClassName: "",
 },
 {
 id: "02",
 title: "A Place to Learn",
 category: "ACADEMICS",
-image: "/images/bus-01.jpg",
+image: "/images/lib.jpg",
 className: "",
+imageClassName: "",
 },
 {
-id: "03",
-title: "Student Life",
-category: "COMMUNITY",
-image: "/images/bus-02.jpg",
-className: "",
+  id: "03",
+  title: "Student Life",
+  category: "COMMUNITY",
+  image: "/images/tiro.jpg",
+  className: "",
+  imageClassName: "rotate-[-90deg] scale-[1.35]",
 },
 {
 id: "04",
 title: "The Journey Together",
 category: "OCT RIDE",
-image: "/images/bus-03.jpg",
+image: "/images/ride.jpg",
 className: "md:col-span-2",
+imageClassName: "",
 },
 ];
 
@@ -63,14 +67,18 @@ Life at Oriental </p>
           key={item.id}
           className={`group relative isolate overflow-hidden rounded-2xl bg-slate-100 ${item.className}`}
         >
-          {/* Image */}
-          <Image
-            src={item.image}
-            alt={item.title}
-            fill
-            sizes="(min-width: 768px) 50vw, 100vw"
-            className="absolute inset-0 -z-20 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-          />
+          {/* Image viewport: card stays unchanged */}
+          <div className="absolute inset-0 -z-20 overflow-hidden">
+            <Image
+              src={item.image}
+              alt={item.title}
+              fill
+              sizes="(min-width: 768px) 50vw, 100vw"
+              className={`object-cover transition-transform duration-700 ease-out group-hover:scale-105 ${
+                item.imageClassName || ""
+              }`}
+            />
+          </div>
 
           {/* Neutral Overlay */}
           <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/80 via-black/10 to-black/5 transition-opacity duration-300 group-hover:from-black/90" />
