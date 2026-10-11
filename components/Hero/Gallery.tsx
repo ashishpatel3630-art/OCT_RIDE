@@ -45,8 +45,6 @@ return ( <section
  > <div className="mx-auto max-w-[1400px]">
 {/* Section Heading */} <div className="mb-12 flex flex-col justify-between gap-6 md:mb-16 md:flex-row md:items-end"> <div className="max-w-2xl"> <p className="mb-4 text-xs font-bold uppercase tracking-[0.24em] text-slate-500">
 Life at Oriental </p>
-
-
         <h2 className="text-4xl font-black leading-tight tracking-[-0.055em] sm:text-5xl lg:text-6xl">
           More than a
           <br />
