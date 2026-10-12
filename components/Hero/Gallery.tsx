@@ -37,7 +37,6 @@ className: "md:col-span-2",
 imageClassName: "",
 },
 ];
-
 export default function Gallery() {
 return ( <section
    id="gallery"
