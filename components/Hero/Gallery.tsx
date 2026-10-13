@@ -50,7 +50,6 @@ Life at Oriental </p>
           <span className="text-slate-400">daily commute.</span>
         </h2>
       </div>
-
       <p className="max-w-md text-sm leading-7 text-slate-500 sm:text-base">
         Every college day is a new journey. Discover the spaces,
         people, and experiences that make campus life special.
