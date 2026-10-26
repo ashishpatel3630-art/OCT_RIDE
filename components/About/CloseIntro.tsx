@@ -23,7 +23,7 @@ function CloseIntro() {
           <h2 className="max-w-6xl text-[clamp(3rem,10vw,9rem)] font-semibold leading-[0.88] tracking-[-0.085em]">
             BACKBENCHERS
             <br />
-            <span className="text-neutral-400">DON'T FOLLOW</span>
+            <span className="text-neutral-400">DON&apos;T FOLLOW</span>
             <br />
             THEY BUILD.
           </h2>
@@ -32,7 +32,7 @@ function CloseIntro() {
         {/* Bottom content */}
         <div className="mt-14 flex flex-col justify-between gap-8 border-t border-black/15 pt-8 sm:mt-20 sm:flex-row sm:items-end">
           <p className="max-w-xl text-sm leading-7 text-neutral-600 sm:text-base sm:leading-8">
-            OCT RIDE started with a simple question: why should finding your
+            OGI RIDE started with a simple question: why should finding your
             college bus be complicated? We are here to make everyday campus
             travel simpler, smarter and easier for everyone.
           </p>
@@ -51,7 +51,7 @@ function CloseIntro() {
         {/* Final signature */}
         <div className="mt-20 flex flex-col gap-3 border-t border-black/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-xl font-black tracking-[-0.08em]">
-            OCT<span className="text-neutral-400">RIDE.</span>
+            OGI<span className="text-neutral-400">RIDE.</span>
           </span>
 
           <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-neutral-500">

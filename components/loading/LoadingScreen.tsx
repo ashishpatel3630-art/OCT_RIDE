@@ -11,25 +11,9 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
   const [isExiting, setIsExiting] = useState(false);
 
   useEffect(() => {
-    let current = 0;
-    let progressTimer: ReturnType<typeof setTimeout>;
-    let exitTimer: ReturnType<typeof setTimeout>;
-    let completeTimer: ReturnType<typeof setTimeout>;
-
-    const updateProgress = () => {
-      current = Math.min(current + Math.ceil(Math.random() * 8) + 2, 100);
-      setProgress(current);
-
-      if (current < 100) {
-        progressTimer = setTimeout(updateProgress, 70);
-        return;
-      }
-
-      exitTimer = setTimeout(() => setIsExiting(true), 350);
-      completeTimer = setTimeout(() => onComplete?.(), 1000);
-    };
-
-    progressTimer = setTimeout(updateProgress, 150);
+    const progressTimer = setTimeout(() => setProgress(100), 200);
+    const exitTimer = setTimeout(() => setIsExiting(true), 450);
+    const completeTimer = setTimeout(() => onComplete?.(), 750);
 
     return () => {
       clearTimeout(progressTimer);
@@ -40,21 +24,21 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
 
   return (
     <div
-      aria-label="Loading OCT RIDE"
+      aria-label="Loading OGI RIDE"
       aria-busy={!isExiting}
       className={`fixed inset-0 z-[9999] flex items-center justify-center bg-white text-neutral-950 transition-transform duration-700 ease-in-out ${
         isExiting ? "-translate-y-full" : "translate-y-0"
       }`}
     >
       {" "}
-      <main className="w-full max-w-sm px-7">
+      <div className="w-full max-w-sm px-7">
         <div className="mb-16 flex items-center justify-center gap-3">
           {" "}
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-950 text-sm font-bold tracking-tight text-white">
-            OCT{" "}
+            OGI{" "}
           </div>
           <div>
-            <p className="text-lg font-bold tracking-tight">OCT RIDE</p>
+            <p className="text-lg font-bold tracking-tight">OGI RIDE</p>
             <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.2em] text-neutral-500">
               Campus Mobility
             </p>
@@ -86,13 +70,13 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
         <p className="text-sm  mt-15 mx-4 text-center text-gray-400 letter-spacing-[0.2em] tracking-[0.1em]">
           Find Your Bus Easily With 
           <span className="text-sm text-black/90 font-bold   " >
-            OCT RIDE
+            OGI RIDE
           </span>
         </p>
         <p className="mt-5 text-center text-xs text-neutral-400">
           Oriental College of Technology · Bhopal
         </p>
-      </main>
+      </div>
     </div>
   );
 }

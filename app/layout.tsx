@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Geist } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
-  title: "OCT RIDE | Campus mobility, made simple",
+  title: "OGI RIDE | Campus mobility, made simple",
   description:
-    "Find your assigned bus, check your route and discover pickup points with OCT RIDE, the campus mobility platform for Oriental College of Technology.",
+    "Find college bus routes, manage transport requests, and track your assigned OGI RIDE bus at Oriental College of Technology.",
   icons: {
     icon: "/favicon.ico",
   },
@@ -16,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={cn("font-sans", geist.variable)}>
       <body>{children}</body>
     </html>
   );
