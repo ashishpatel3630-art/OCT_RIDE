@@ -11,6 +11,7 @@ import HowItWorks from "../components/Hero/HowItWorks";
 import Footer from "../components/layout/Footer";
 import Faq from "../components/Hero/Faq";
 import TrackingIntro from "../components/Hero/TrackingIntro";
+import BottomGallery from "@/components/Hero/BottomGallery";
 export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
   const finishLoading = useCallback(() => setIsLoading(false), []);
@@ -31,6 +32,7 @@ export default function Page() {
 
       <HowItWorks />
       <TrackingIntro />
+      <BottomGallery/>
       <Faq />
       <Footer />
     </main>
