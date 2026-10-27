@@ -6,6 +6,11 @@ import { useMemo, useState } from "react";
 import { apiRequest } from "@/lib/client-api";
 import type { MapBus } from "./BusMap";
 
+type PositionedMapBus = MapBus & {
+  latitude: number;
+  longitude: number;
+};
+
 type Stop = {
   stop_order: number;
   scheduled_time: string | null;
@@ -77,10 +82,9 @@ export default function BusFinder({ routes }: { routes: Route[] }) {
 
     return routes.flatMap((route) => {
       const matchingStops = route.route_stops.filter((item) =>
-        [
-          item.stops?.name ?? "",
-          item.stops?.address ?? "",
-        ].some((text) => text.toLowerCase().includes(value)),
+        [item.stops?.name ?? "", item.stops?.address ?? ""].some((text) =>
+          text.toLowerCase().includes(value),
+        ),
       );
 
       const routeMatches = [
@@ -90,10 +94,9 @@ export default function BusFinder({ routes }: { routes: Route[] }) {
       ].some((text) => text.toLowerCase().includes(value));
 
       const matchingBuses = route.buses.filter((bus) =>
-        [
-          bus.bus_number,
-          bus.registration_number,
-        ].some((text) => text.toLowerCase().includes(value)),
+        [bus.bus_number, bus.registration_number].some((text) =>
+          text.toLowerCase().includes(value),
+        ),
       );
 
       if (matchingBuses.length > 0) {
@@ -146,29 +149,42 @@ export default function BusFinder({ routes }: { routes: Route[] }) {
             : "Live location could not be loaded.",
         );
       }
+    } catch {
+      setError("Unable to load bus details. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
-  const routePoints = (selectedBus?.route.route_stops ?? [])
-    .filter(
-      (stop) =>
-        typeof stop.stops?.latitude === "number" &&
-        typeof stop.stops.longitude === "number",
-    )
-    .sort((a, b) => a.stop_order - b.stop_order)
-    .map((stop) => ({
-      name: stop.stops?.name ?? "Bus stop",
-      latitude: stop.stops!.latitude!,
-      longitude: stop.stops!.longitude!,
-    }));
+  const routePoints = useMemo(
+    () =>
+      (selectedBus?.route.route_stops ?? [])
+        .filter(
+          (
+            stop,
+          ): stop is Stop & {
+            stops: NonNullable<Stop["stops"]> & {
+              latitude: number;
+              longitude: number;
+            };
+          } =>
+            stop.stops !== null &&
+            typeof stop.stops.latitude === "number" &&
+            Number.isFinite(stop.stops.latitude) &&
+            typeof stop.stops.longitude === "number" &&
+            Number.isFinite(stop.stops.longitude),
+        )
+        .slice()
+        .sort((a, b) => a.stop_order - b.stop_order)
+        .map((stop) => ({
+          name: stop.stops.name,
+          latitude: stop.stops.latitude,
+          longitude: stop.stops.longitude,
+        })),
+    [selectedBus],
+  );
 
-  const hasLivePosition =
-    mapBus &&
-    (mapBus.status === "LIVE" || mapBus.status === "STALE") &&
-    typeof mapBus.latitude === "number" &&
-    typeof mapBus.longitude === "number";
+  const hasLivePosition = hasPosition(mapBus);
 
   return (
     <section
@@ -309,15 +325,14 @@ export default function BusFinder({ routes }: { routes: Route[] }) {
             </div>
 
             <span className="rounded-full border border-neutral-200 px-3 py-1.5 text-xs font-semibold">
-              {loading ? "Loading details…" : mapBus?.status ?? "Status unavailable"}
+              {loading
+                ? "Loading details…"
+                : (mapBus?.status ?? "Status unavailable")}
             </span>
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <InfoCard
-              label="Driver"
-              value={driver?.name ?? "Not available"}
-            />
+            <InfoCard label="Driver" value={driver?.name ?? "Not available"} />
             <InfoCard
               label="Driver contact"
               value={driver?.phone ?? "Not available"}
@@ -382,7 +397,7 @@ export default function BusFinder({ routes }: { routes: Route[] }) {
               </button>
             </div>
 
-            {hasLivePosition ? (
+            {hasLivePosition && mapBus ? (
               <BusMap bus={mapBus} routePoints={routePoints} />
             ) : (
               <div className="grid min-h-48 place-items-center rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-6 text-center">
@@ -415,13 +430,20 @@ export default function BusFinder({ routes }: { routes: Route[] }) {
   );
 }
 
-function InfoCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function hasPosition(
+  bus: MapBus | null,
+): bus is PositionedMapBus {
+  return (
+    bus !== null &&
+    (bus.status === "LIVE" || bus.status === "STALE") &&
+    typeof bus.latitude === "number" &&
+    Number.isFinite(bus.latitude) &&
+    typeof bus.longitude === "number" &&
+    Number.isFinite(bus.longitude)
+  );
+}
+
+function InfoCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-neutral-200 p-4">
       <p className="text-xs font-semibold text-neutral-500">{label}</p>

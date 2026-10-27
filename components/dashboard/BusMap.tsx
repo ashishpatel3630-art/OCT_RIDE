@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo } from "react";
@@ -11,8 +10,10 @@ import {
   useMap,
 } from "react-leaflet";
 import type { LatLngExpression } from "leaflet";
-import BusFinder from "./BusFinder";
+
 export type MapBus = {
+  id?: string;
+  label?: string;
   status: "LIVE" | "STALE" | "OFFLINE" | "TRIP ENDED" | string;
   latitude: number | null;
   longitude: number | null;
@@ -25,9 +26,18 @@ export type RoutePoint = {
   longitude: number;
 };
 
+type PositionedMapBus = MapBus & {
+  latitude: number;
+  longitude: number;
+};
+
 type BusMapProps = {
-  bus: MapBus & { latitude: number; longitude: number };
+  bus: PositionedMapBus;
   routePoints: RoutePoint[];
+};
+
+type FleetMapProps = {
+  buses: MapBus[];
 };
 
 export function BusMap({ bus, routePoints }: BusMapProps) {
@@ -119,6 +129,82 @@ export function BusMap({ bus, routePoints }: BusMapProps) {
             </div>
           </Popup>
         </CircleMarker>
+      </MapContainer>
+    </div>
+  );
+}
+
+export function FleetMap({ buses }: FleetMapProps) {
+  const positionedBuses = buses.filter(
+    (bus): bus is PositionedMapBus =>
+      typeof bus.latitude === "number" &&
+      Number.isFinite(bus.latitude) &&
+      typeof bus.longitude === "number" &&
+      Number.isFinite(bus.longitude),
+  );
+
+  const positions = useMemo<LatLngExpression[]>(
+    () =>
+      positionedBuses.map(
+        (bus) => [bus.latitude, bus.longitude] as LatLngExpression,
+      ),
+    [positionedBuses],
+  );
+
+  if (positionedBuses.length === 0) {
+    return (
+      <div className="grid h-[30rem] place-items-center rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-6 text-center">
+        <div>
+          <p className="font-semibold">No live bus positions</p>
+          <p className="mt-2 text-sm text-neutral-500">
+            Bus markers will appear when valid GPS coordinates are available.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-100">
+      <MapContainer
+        center={positions[0]}
+        zoom={11}
+        scrollWheelZoom
+        className="h-[30rem] w-full"
+        zoomControl
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+        />
+
+        <MapViewport points={positions} />
+
+        {positionedBuses.map((bus, index) => (
+          <CircleMarker
+            key={bus.id ?? `${bus.label ?? "bus"}-${index}`}
+            center={[bus.latitude, bus.longitude]}
+            radius={9}
+            pathOptions={{
+              color: "#ffffff",
+              weight: 3,
+              fillColor: bus.status === "LIVE" ? "#15803d" : "#737373",
+              fillOpacity: 1,
+            }}
+          >
+            <Popup>
+              <div className="min-w-36 text-sm">
+                <p className="font-semibold">{bus.label ?? "Bus"}</p>
+                <p className="mt-1 text-neutral-600">
+                  Status: {bus.status}
+                </p>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Updated {new Date(bus.recordedAt).toLocaleTimeString()}
+                </p>
+              </div>
+            </Popup>
+          </CircleMarker>
+        ))}
       </MapContainer>
     </div>
   );

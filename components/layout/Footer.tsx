@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import {
@@ -26,6 +27,11 @@ const accountLinks = [
 
 function Footer() {
   const shouldReduceMotion = useReducedMotion();
+  const [currentYear, setCurrentYear] = useState(2026);
+
+  useEffect(() => {
+    setCurrentYear(new Date().getFullYear());
+  }, []);
 
   return (
     <footer className="relative overflow-hidden bg-neutral-950 text-white">
@@ -158,7 +164,7 @@ function Footer() {
 
         {/* Bottom bar */}
         <div className="flex flex-col gap-5 border-t border-white/10 py-6 text-xs text-white/45 sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} OGI RIDE. All rights reserved.</p>
+          <p>© {currentYear} OGI RIDE. All rights reserved.</p>
 
           <p className="order-first font-medium tracking-wide text-white/70 sm:order-none">
             Your college. Your journey.

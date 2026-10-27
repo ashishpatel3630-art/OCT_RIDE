@@ -57,7 +57,7 @@ function IntroAbout() {
               imagine it
               <br />
               <span className="text-neutral-400">
-                we can Develop  it.
+                we can Create it.
               </span>
             </h2>
 
