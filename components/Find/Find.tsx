@@ -4,42 +4,56 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+type RouteStop = {
+  stop_order: number;
+  scheduled_time: string | null;
+  stops: {
+    id: string;
+    name: string;
+    address: string | null;
+  } | null;
+};
+
+type Bus = {
+  id: string;
+  bus_number: string;
+  registration_number: string;
+  active: boolean;
+};
+
 type Route = {
   id: string;
   name: string;
   origin: string;
   destination: string;
-  route_stops: {
-    stop_order: number;
-    scheduled_time: string | null;
-    stops: {
-      id: string;
-      name: string;
-      address: string | null;
-    } | null;
-  }[];
-  buses: {
-    id: string;
-    bus_number: string;
-    registration_number: string;
-    active: boolean;
-  }[];
+  route_stops: RouteStop[];
+  buses: Bus[];
 };
 
 type Filter = "all" | "bus" | "location" | "route";
 
 const filters: { label: string; value: Filter }[] = [
-  { label: "All transport", value: "all" },
+  { label: "Everything", value: "all" },
   { label: "Bus number", value: "bus" },
-  { label: "Pickup location", value: "location" },
-  { label: "Route name", value: "route" },
+  { label: "Pickup point", value: "location" },
+  { label: "Route", value: "route" },
 ];
 
 function Icon({
   name,
   className = "size-5",
 }: {
-  name: "search" | "bus" | "pin" | "arrow" | "clock" | "chevron" | "route" | "close";
+  name:
+    | "search"
+    | "bus"
+    | "pin"
+    | "arrow"
+    | "clock"
+    | "chevron"
+    | "route"
+    | "close"
+    | "check"
+    | "refresh";
   className?: string;
 }) {
   const common = {
@@ -47,7 +61,7 @@ function Icon({
     viewBox: "0 0 24 24",
     fill: "none",
     stroke: "currentColor",
-    strokeWidth: 1.8,
+    strokeWidth: 1.7,
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
     "aria-hidden": true as const,
@@ -110,6 +124,19 @@ function Icon({
           <path d="m18 6-12 12M6 6l12 12" />
         </svg>
       );
+    case "check":
+      return (
+        <svg {...common}>
+          <path d="m5 12 4 4L19 6" />
+        </svg>
+      );
+    case "refresh":
+      return (
+        <svg {...common}>
+          <path d="M20 7v5h-5M4 17v-5h5" />
+          <path d="M5.6 9A7 7 0 0 1 18 6l2 6M4 12l2 6a7 7 0 0 0 12.4-3" />
+        </svg>
+      );
   }
 }
 
@@ -118,9 +145,12 @@ export default function Find() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [expanded, setExpanded] = useState<string[]>([]);
-  const [selectedBus, setSelectedBus] = useState<Record<string, string>>({});
+  const [selectedBus, setSelectedBus] = useState<
+    Record<string, string>
+  >({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -132,11 +162,15 @@ export default function Find() {
 
         const response = await fetch("/api/routes", {
           signal: controller.signal,
+          cache: "no-store",
         });
+
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.error ?? "Unable to load transport routes.");
+          throw new Error(
+            data.error ?? "Unable to load transport routes."
+          );
         }
 
         setRoutes(Array.isArray(data.routes) ? data.routes : []);
@@ -145,18 +179,21 @@ export default function Find() {
           setError(err.message);
         }
       } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     }
 
     void loadRoutes();
+
     return () => controller.abort();
-  }, []);
+  }, [retry]);
 
   const activeRoutes = useMemo(
     () =>
-      routes.filter(
-        (route) => route.buses?.some((bus) => bus.active) ?? false
+      routes.filter((route) =>
+        route.buses?.some((bus) => bus.active)
       ),
     [routes]
   );
@@ -167,9 +204,12 @@ export default function Find() {
     if (!needle) return activeRoutes;
 
     return activeRoutes.filter((route) => {
-      const busValues = route.buses
-        .filter((bus) => bus.active)
-        .flatMap((bus) => [bus.bus_number, bus.registration_number]);
+      const activeBuses = route.buses.filter((bus) => bus.active);
+
+      const busValues = activeBuses.flatMap((bus) => [
+        bus.bus_number,
+        bus.registration_number,
+      ]);
 
       const locationValues = route.route_stops.flatMap((stop) => [
         stop.stops?.name ?? "",
@@ -197,6 +237,17 @@ export default function Find() {
     });
   }, [activeRoutes, query, filter]);
 
+  function clearSearch() {
+    setQuery("");
+    setFilter("all");
+  }
+
+  function searchLocation(location: string) {
+    setQuery(location);
+    setFilter("location");
+    document.getElementById("route-query")?.focus();
+  }
+
   function toggleExpanded(routeId: string) {
     setExpanded((current) =>
       current.includes(routeId)
@@ -205,84 +256,84 @@ export default function Find() {
     );
   }
 
-  function searchLocation(location: string) {
-    setQuery(location);
-    setFilter("location");
-  }
-
-  function clearSearch() {
-    setQuery("");
-    setFilter("all");
-  }
-
   return (
-    <main className="min-h-screen overflow-hidden bg-[#F5F7FC] pb-20 text-[#14213D]">
+    <main className="min-h-screen overflow-hidden bg-[#F5F5F5] pb-16 text-[#171717]">
       {/* HERO */}
-      <section className="relative overflow-hidden border-b border-slate-200 bg-white">
-        <div className="pointer-events-none absolute -right-40 -top-40 size-[480px] rounded-full bg-blue-100/70 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-32 left-[25%] size-80 rounded-full bg-indigo-50 blur-3xl" />
+      <section className="relative border-b border-[#E5E5E5] bg-white">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[#171717]" />
 
-        <div className="relative mx-auto grid max-w-7xl gap-12 px-5 pb-14 pt-32 sm:px-8 sm:pb-20 sm:pt-36 lg:grid-cols-[1fr_.85fr] lg:items-center lg:px-12">
+        <div className="mx-auto grid max-w-7xl gap-10 px-5 pb-12 pt-28 sm:px-8 sm:pb-16 sm:pt-32 lg:grid-cols-[1.05fr_.85fr] lg:items-center lg:gap-16 lg:px-12 lg:pb-20">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3.5 py-2 text-xs font-bold uppercase tracking-[.15em] text-blue-800">
-              <span className="size-2 rounded-full bg-blue-600" />
-              OGI RIDE / Transport
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#E5E5E5] bg-[#FAFAFA] px-3.5 py-2 text-xs font-semibold uppercase tracking-[.14em] text-[#404040]">
+              <span className="size-2 rounded-full bg-[#171717]" />
+              OGI RIDE
+              <span className="text-[#A3A3A3]">/</span>
+              College transport
             </div>
 
-            <h1 className="mt-7 max-w-2xl text-[3.2rem] font-semibold leading-[1.02] tracking-[-.065em] sm:text-6xl lg:text-[4.5rem]">
-              Every route.
+            <h1 className="mt-7 max-w-2xl text-5xl font-semibold leading-[1.02] tracking-[-.065em] sm:text-6xl lg:text-[4.8rem]">
+              Your route.
               <br />
-              <span className="text-[#3157D5]">One destination.</span>
+              Your everyday
+              <br />
+              <span className="text-[#737373]">journey.</span>
             </h1>
 
-            <p className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-              Discover college bus routes, find nearby pickup points and
-              check scheduled timings with a simpler transport experience.
+            <p className="mt-6 max-w-lg text-base leading-7 text-[#737373] sm:text-lg sm:leading-8">
+              Find your college bus, explore pickup points and check
+              scheduled timings — all in one simple place.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
               <a
                 href="#routes"
-                className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-[#3157D5] px-5 text-sm font-semibold text-white shadow-lg shadow-blue-900/10 transition hover:-translate-y-0.5 hover:bg-blue-800"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#171717] px-5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#737373] focus-visible:ring-offset-2"
               >
-                Explore routes <Icon name="arrow" />
+                Explore routes
+                <Icon name="arrow" className="size-4" />
               </a>
+
               <Link
                 href="/login"
-                className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50"
+                className="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#E5E5E5] bg-white px-5 text-sm font-semibold text-[#262626] transition hover:border-[#A3A3A3] hover:bg-[#F5F5F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#737373] focus-visible:ring-offset-2"
               >
                 Student portal
               </Link>
             </div>
 
-            <div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-500">
+            <div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-sm text-[#737373]">
               <span className="flex items-center gap-2">
-                <span className="text-emerald-600">✓</span>
-                Published bus routes
+                <Icon name="check" className="size-4 text-[#404040]" />
+                Published routes
               </span>
               <span className="flex items-center gap-2">
-                <span className="text-emerald-600">✓</span>
+                <Icon name="check" className="size-4 text-[#404040]" />
                 Pickup schedules
+              </span>
+              <span className="flex items-center gap-2">
+                <Icon name="check" className="size-4 text-[#404040]" />
+                Bus details
               </span>
             </div>
           </div>
 
-          {/* INTERACTIVE SEARCH PANEL */}
-          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_25px_80px_-35px_rgba(31,65,140,.28)] sm:p-7">
+          {/* SEARCH PANEL */}
+          <div className="rounded-[28px] border border-[#E5E5E5] bg-white p-5 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.25)] sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[.15em] text-blue-700">
-                  Smart route search
+                <p className="text-xs font-semibold uppercase tracking-[.16em] text-[#737373]">
+                  Find your journey
                 </p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-                  Where do you need to go?
+                <h2 className="mt-2 text-2xl font-semibold tracking-[-.04em] sm:text-[1.8rem]">
+                  Where are you headed?
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Choose what you want to search for.
+                <p className="mt-2 text-sm leading-6 text-[#737373]">
+                  Search buses, destinations or pickup locations.
                 </p>
               </div>
-              <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
-                <Icon name="search" className="size-6" />
+
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#171717] text-white">
+                <Icon name="search" className="size-5" />
               </div>
             </div>
 
@@ -293,10 +344,10 @@ export default function Find() {
                   type="button"
                   onClick={() => setFilter(item.value)}
                   aria-pressed={filter === item.value}
-                  className={`min-h-10 rounded-xl border px-2 py-2 text-xs font-semibold transition sm:text-[11px] ${
+                  className={`min-h-10 rounded-xl border px-2 py-2 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#737373] focus-visible:ring-offset-1 ${
                     filter === item.value
-                      ? "border-[#3157D5] bg-[#3157D5] text-white shadow-md shadow-blue-900/10"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50"
+                      ? "border-[#171717] bg-[#171717] text-white"
+                      : "border-[#E5E5E5] bg-white text-[#525252] hover:border-[#A3A3A3] hover:bg-[#F5F5F5]"
                   }`}
                 >
                   {item.label}
@@ -306,19 +357,23 @@ export default function Find() {
 
             <label
               htmlFor="route-query"
-              className="mb-2 mt-5 block text-sm font-semibold text-slate-700"
+              className="mb-2 mt-5 block text-sm font-semibold text-[#404040]"
             >
               {filter === "bus"
-                ? "Enter bus number or registration"
+                ? "Bus number or registration"
                 : filter === "location"
-                  ? "Enter pickup location"
+                  ? "Pickup location"
                   : filter === "route"
-                    ? "Enter route name or destination"
+                    ? "Route or destination"
                     : "Search transport"}
             </label>
 
-            <div className="flex min-h-14 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 transition focus-within:border-blue-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-500/10">
-              <Icon name="search" className="shrink-0 text-slate-400" />
+            <div className="flex min-h-14 items-center gap-3 rounded-2xl border border-[#E5E5E5] bg-[#F7F7F7] px-4 transition focus-within:border-[#737373] focus-within:bg-white focus-within:ring-4 focus-within:ring-black/5">
+              <Icon
+                name="search"
+                className="size-5 shrink-0 text-[#737373]"
+              />
+
               <input
                 id="route-query"
                 value={query}
@@ -333,10 +388,11 @@ export default function Find() {
                       ? "e.g. Railway Station"
                       : filter === "route"
                         ? "e.g. Bhopal to Sehore"
-                        : "Bus number, stop or destination"
+                        : "Bus, stop or destination"
                 }
-                className="min-w-0 flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-slate-400"
+                className="min-w-0 flex-1 bg-transparent py-3 text-sm text-[#171717] outline-none placeholder:text-[#A3A3A3]"
                 type="search"
+                autoComplete="off"
               />
 
               {query && (
@@ -344,34 +400,38 @@ export default function Find() {
                   type="button"
                   onClick={clearSearch}
                   aria-label="Clear search"
-                  className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-200"
+                  className="rounded-lg p-1.5 text-[#737373] transition hover:bg-[#E5E5E5] hover:text-black"
                 >
                   <Icon name="close" className="size-4" />
                 </button>
               )}
             </div>
 
-            <p className="mt-3 text-xs leading-5 text-slate-500">
+            <p className="mt-3 text-xs leading-5 text-[#737373]">
               Results update automatically as you type.
             </p>
 
-            <div className="mt-5 border-t border-slate-100 pt-4">
-              <p className="text-xs font-semibold tracking-wide text-slate-500">
-                QUICK SEARCH
+            <div className="mt-5 border-t border-[#EEEEEE] pt-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-[#737373]">
+                Popular searches
               </p>
+
               <div className="mt-3 flex flex-wrap gap-2">
-                {["Bhopal", "Railway Station", "Sehore", "Kalapipal"].map(
-                  (place) => (
-                    <button
-                      key={place}
-                      type="button"
-                      onClick={() => searchLocation(place)}
-                      className="rounded-full border border-slate-200 px-3.5 py-2 text-xs font-medium text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800"
-                    >
-                      {place}
-                    </button>
-                  )
-                )}
+                {[
+                  "Bhopal",
+                  "Railway Station",
+                  "Sehore",
+                  "Kalapipal",
+                ].map((place) => (
+                  <button
+                    key={place}
+                    type="button"
+                    onClick={() => searchLocation(place)}
+                    className="rounded-full border border-[#E5E5E5] px-3.5 py-2 text-xs font-medium text-[#525252] transition hover:border-[#A3A3A3] hover:bg-[#F5F5F5] hover:text-black"
+                  >
+                    {place}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -381,234 +441,301 @@ export default function Find() {
       {/* ROUTE RESULTS */}
       <section
         id="routes"
-        className="mx-auto max-w-7xl px-5 pt-12 sm:px-8 sm:pt-16 lg:px-12"
+        className="mx-auto max-w-7xl scroll-mt-24 px-5 pt-12 sm:px-8 sm:pt-16 lg:px-12"
         aria-live="polite"
       >
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[.16em] text-blue-700">
-              College transport network
+            <p className="text-xs font-semibold uppercase tracking-[.16em] text-[#737373]">
+              Your college transport network
             </p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-.045em] sm:text-4xl">
-              {query ? "Matching routes" : "Explore bus routes"}
+
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-.05em] sm:text-4xl">
+              {query ? "Search results" : "Explore bus routes"}
             </h2>
-            <p className="mt-3 text-sm text-slate-500">
+
+            <p className="mt-3 text-sm text-[#737373]">
               {loading
                 ? "Loading published routes..."
-                : `${results.length} ${
-                    results.length === 1 ? "route" : "routes"
-                  } available`}
+                : error
+                  ? "Routes are temporarily unavailable."
+                  : `${results.length} ${
+                      results.length === 1 ? "route" : "routes"
+                    } found`}
             </p>
           </div>
 
-          {query && (
-            <button
-              type="button"
-              onClick={clearSearch}
-              className="inline-flex min-h-10 items-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-700 sm:self-auto"
-            >
-              <Icon name="close" className="size-4" /> Reset filters
-            </button>
-          )}
+          <div className="flex flex-wrap items-center gap-3">
+            {!loading && !error && (
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#E5E5E5] bg-white px-3 py-2 text-xs font-medium text-[#525252]">
+                <span className="size-1.5 rounded-full bg-[#171717]" />
+                Active services
+              </span>
+            )}
+
+            {query && (
+              <button
+                type="button"
+                onClick={clearSearch}
+                className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#E5E5E5] bg-white px-4 text-sm font-semibold text-[#525252] transition hover:border-[#A3A3A3] hover:bg-[#F5F5F5] hover:text-black"
+              >
+                <Icon name="close" className="size-4" />
+                Clear search
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Loading */}
+        {/* LOADING STATE */}
         {loading && (
           <div className="mt-8 grid gap-5 md:grid-cols-2">
             {[1, 2, 3, 4].map((item) => (
               <div
                 key={item}
-                className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6"
+                className="animate-pulse rounded-3xl border border-[#E5E5E5] bg-white p-6"
               >
-                <div className="h-5 w-2/3 rounded bg-slate-200" />
-                <div className="mt-4 h-4 w-1/2 rounded bg-slate-100" />
-                <div className="mt-8 space-y-4">
-                  <div className="h-4 rounded bg-slate-100" />
-                  <div className="h-4 w-3/4 rounded bg-slate-100" />
-                  <div className="h-4 w-1/2 rounded bg-slate-100" />
+                <div className="h-5 w-2/3 rounded bg-[#E5E5E5]" />
+                <div className="mt-4 h-4 w-1/2 rounded bg-[#EEEEEE]" />
+                <div className="mt-8 grid grid-cols-2 gap-3">
+                  <div className="h-20 rounded-2xl bg-[#F5F5F5]" />
+                  <div className="h-20 rounded-2xl bg-[#F5F5F5]" />
+                </div>
+                <div className="mt-6 space-y-4">
+                  <div className="h-4 rounded bg-[#EEEEEE]" />
+                  <div className="h-4 w-3/4 rounded bg-[#EEEEEE]" />
+                  <div className="h-4 w-1/2 rounded bg-[#EEEEEE]" />
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* Error */}
+        {/* ERROR STATE */}
         {!loading && error && (
           <div
             role="alert"
-            className="mt-8 rounded-3xl border border-amber-200 bg-amber-50 p-6"
+            className="mt-8 rounded-3xl border border-[#E5E5E5] bg-white p-8"
           >
-            <h3 className="font-semibold text-amber-950">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-[#F5F5F5] text-[#171717]">
+              <Icon name="refresh" className="size-6" />
+            </div>
+
+            <h3 className="mt-5 text-xl font-semibold">
               Could not load transport data
             </h3>
-            <p className="mt-2 text-sm leading-6 text-amber-900">{error}</p>
+
+            <p className="mt-2 text-sm leading-6 text-[#737373]">
+              {error}
+            </p>
+
             <button
               type="button"
-              onClick={() => window.location.reload()}
-              className="mt-4 rounded-xl bg-amber-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-950"
+              onClick={() => setRetry((value) => value + 1)}
+              className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#171717] px-5 text-sm font-semibold text-white transition hover:bg-[#333333]"
             >
+              <Icon name="refresh" className="size-4" />
               Try again
             </button>
           </div>
         )}
 
-        {/* Empty state */}
+        {/* EMPTY STATE */}
         {!loading && !error && results.length === 0 && (
-          <div className="mt-8 rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
-            <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+          <div className="mt-8 rounded-3xl border border-dashed border-[#D4D4D4] bg-white px-6 py-16 text-center">
+            <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-[#F5F5F5] text-[#171717]">
               <Icon name="search" className="size-7" />
             </div>
-            <h3 className="mt-5 text-xl font-semibold">
-              {query ? "No matching routes found" : "No active routes yet"}
+
+            <h3 className="mt-5 text-xl font-semibold tracking-tight">
+              {query ? "No matching routes" : "No active routes yet"}
             </h3>
-            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#737373]">
               {query
-                ? "Try another bus number, route name or pickup location."
-                : "Published routes with active buses will appear here."}
+                ? "Try a different bus number, pickup point or destination."
+                : "Active buses and their published routes will appear here."}
             </p>
+
             {query && (
               <button
                 type="button"
                 onClick={clearSearch}
-                className="mt-5 rounded-xl bg-[#3157D5] px-5 py-3 text-sm font-semibold text-white hover:bg-blue-800"
+                className="mt-5 rounded-xl bg-[#171717] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#333333]"
               >
-                Show all routes
+                View all routes
               </button>
             )}
           </div>
         )}
 
-        {/* Cards */}
+        {/* ROUTE CARDS */}
         {!loading && !error && results.length > 0 && (
-          <div className="mt-8 grid items-start gap-5 md:grid-cols-2">
+          <div className="mt-8 grid items-start gap-5 lg:grid-cols-2">
             {results.map((route) => {
               const buses = route.buses.filter((bus) => bus.active);
+
               const stops = [...route.route_stops].sort(
                 (a, b) => a.stop_order - b.stop_order
               );
+
               const isExpanded = expanded.includes(route.id);
-              const visibleStops = isExpanded ? stops : stops.slice(0, 4);
+              const visibleStops = isExpanded
+                ? stops
+                : stops.slice(0, 4);
+
               const chosenBusId = selectedBus[route.id];
-              const chosenBus = buses.find((bus) => bus.id === chosenBusId);
+              const chosenBus = buses.find(
+                (bus) => bus.id === chosenBusId
+              );
 
               return (
                 <article
                   key={route.id}
-                  className="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_8px_30px_-24px_rgba(15,23,42,.3)] transition duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-[0_22px_50px_-30px_rgba(49,87,213,.35)]"
+                  className="group overflow-hidden rounded-3xl border border-[#E5E5E5] bg-white shadow-[0_8px_30px_-24px_rgba(0,0,0,0.25)] transition duration-300 hover:-translate-y-1 hover:border-[#BDBDBD] hover:shadow-[0_22px_50px_-30px_rgba(0,0,0,0.25)]"
                 >
-                  <div className="border-b border-slate-100 p-5 sm:p-6">
+                  {/* CARD HEADER */}
+                  <div className="border-b border-[#EEEEEE] p-5 sm:p-6">
                     <div className="flex items-start gap-4">
-                      <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-[#3157D5] transition group-hover:bg-[#3157D5] group-hover:text-white">
+                      <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#171717] text-white transition group-hover:bg-[#333333]">
                         <Icon name="bus" className="size-6" />
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">
+                        <h3 className="break-words text-lg font-semibold tracking-tight text-[#171717] sm:text-xl">
                           {route.name}
                         </h3>
-                        <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+
+                        <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[#737373]">
                           <span>{route.origin}</span>
                           <Icon name="arrow" className="size-4" />
                           <span>{route.destination}</span>
                         </p>
                       </div>
 
-                      <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                      <span className="shrink-0 rounded-full border border-[#E5E5E5] bg-[#F7F7F7] px-3 py-1.5 text-xs font-semibold text-[#404040]">
                         {buses.length} {buses.length === 1 ? "bus" : "buses"}
                       </span>
                     </div>
 
+                    {/* ROUTE STATISTICS */}
                     <div className="mt-5 grid grid-cols-2 gap-3">
-                      <div className="rounded-2xl bg-slate-50 p-3.5">
-                        <div className="flex items-center gap-2 text-slate-500">
+                      <div className="rounded-2xl border border-[#EEEEEE] bg-[#F7F7F7] p-4">
+                        <div className="flex items-center gap-2 text-[#737373]">
                           <Icon name="route" className="size-4" />
-                          <span className="text-xs">Route stops</span>
+                          <span className="text-xs">Pickup stops</span>
                         </div>
-                        <p className="mt-2 text-xl font-semibold text-slate-900">
-                          {stops.length}
+
+                        <p className="mt-3 text-2xl font-semibold tracking-tight text-[#171717]">
+                          {stops.length.toString().padStart(2, "0")}
                         </p>
                       </div>
 
-                      <div className="rounded-2xl bg-slate-50 p-3.5">
-                        <div className="flex items-center gap-2 text-slate-500">
+                      <div className="rounded-2xl border border-[#EEEEEE] bg-[#F7F7F7] p-4">
+                        <div className="flex items-center gap-2 text-[#737373]">
                           <Icon name="bus" className="size-4" />
                           <span className="text-xs">Active buses</span>
                         </div>
-                        <p className="mt-2 text-xl font-semibold text-slate-900">
-                          {buses.length}
+
+                        <p className="mt-3 text-2xl font-semibold tracking-tight text-[#171717]">
+                          {buses.length.toString().padStart(2, "0")}
                         </p>
                       </div>
                     </div>
                   </div>
 
+                  {/* PICKUP TIMELINE */}
                   <div className="p-5 sm:p-6">
                     <div className="flex items-center justify-between gap-3">
-                      <h4 className="text-sm font-semibold text-slate-800">
-                        Pickup timeline
-                      </h4>
-                      <span className="text-xs text-slate-400">
+                      <div>
+                        <h4 className="text-sm font-semibold text-[#262626]">
+                          Pickup timeline
+                        </h4>
+                        <p className="mt-1 text-xs text-[#737373]">
+                          Tap a stop to find other routes serving it.
+                        </p>
+                      </div>
+
+                      <span className="shrink-0 text-xs text-[#737373]">
                         {stops.length} stops
                       </span>
                     </div>
 
                     {stops.length > 0 ? (
                       <ol className="mt-5">
-                        {visibleStops.map((item, index) => (
-                          <li
-                            key={`${route.id}-${item.stop_order}-${item.stops?.id ?? index}`}
-                            className="flex gap-3"
-                          >
-                            <div className="relative flex w-4 shrink-0 justify-center">
-                              {index < visibleStops.length - 1 && (
-                                <span className="absolute bottom-[-4px] top-3 w-px bg-slate-200" />
-                              )}
-                              <span
-                                className={`relative z-10 mt-1 size-2.5 rounded-full ring-4 ring-white ${
-                                  index === 0 ||
-                                  index === visibleStops.length - 1
-                                    ? "bg-[#3157D5]"
-                                    : "bg-slate-300"
-                                }`}
-                              />
-                            </div>
+                        {visibleStops.map((item, index) => {
+                          const isLast =
+                            index === visibleStops.length - 1;
 
-                            <button
-                              type="button"
-                              onClick={() =>
-                                searchLocation(item.stops?.name ?? "")
-                              }
-                              disabled={!item.stops?.name}
-                              className="mb-4 flex min-w-0 flex-1 items-start justify-between gap-3 rounded-xl text-left transition hover:bg-blue-50/70 disabled:cursor-default"
-                              title="Search routes serving this stop"
+                          const isEndpoint =
+                            index === 0 || isLast;
+
+                          return (
+                            <li
+                              key={`${route.id}-${item.stop_order}-${item.stops?.id ?? index}`}
+                              className="flex gap-3"
                             >
-                              <span className="min-w-0 px-1">
-                                <span className="block text-sm font-medium text-slate-800">
-                                  {item.stops?.name ?? "Unnamed stop"}
+                              <div className="relative flex w-4 shrink-0 justify-center">
+                                {!isLast && (
+                                  <span className="absolute bottom-[-4px] top-3 w-px bg-[#E5E5E5]" />
+                                )}
+
+                                <span
+                                  className={`relative z-10 mt-1 size-2.5 rounded-full ring-4 ring-white ${
+                                    isEndpoint
+                                      ? "bg-[#171717]"
+                                      : "bg-[#D4D4D4]"
+                                  }`}
+                                />
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  searchLocation(item.stops?.name ?? "")
+                                }
+                                disabled={!item.stops?.name}
+                                title="Search routes serving this stop"
+                                className="mb-4 flex min-w-0 flex-1 items-start justify-between gap-3 rounded-xl px-1 py-0.5 text-left transition hover:bg-[#F7F7F7] disabled:cursor-default"
+                              >
+                                <span className="min-w-0">
+                                  <span className="block text-sm font-medium text-[#262626]">
+                                    {item.stops?.name ?? "Unnamed stop"}
+                                  </span>
+
+                                  {item.stops?.address && (
+                                    <span className="mt-1 flex items-start gap-1.5 text-xs leading-5 text-[#737373]">
+                                      <Icon
+                                        name="pin"
+                                        className="mt-0.5 size-3.5 shrink-0"
+                                      />
+                                      <span>{item.stops.address}</span>
+                                    </span>
+                                  )}
+
+                                  {item.stops?.name && (
+                                    <span className="mt-1 block text-[11px] text-[#737373] opacity-0 transition group-hover:opacity-100">
+                                      Search this pickup point
+                                    </span>
+                                  )}
                                 </span>
-                                {item.stops?.address && (
-                                  <span className="mt-1 flex items-start gap-1.5 text-xs leading-5 text-slate-500">
-                                    <Icon name="pin" className="mt-0.5 size-3.5" />
-                                    {item.stops.address}
+
+                                {item.scheduled_time && (
+                                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[#EEEEEE] bg-[#F7F7F7] px-2.5 py-1.5 text-xs font-semibold tabular-nums text-[#525252]">
+                                    <Icon
+                                      name="clock"
+                                      className="size-3.5"
+                                    />
+                                    {item.scheduled_time.slice(0, 5)}
                                   </span>
                                 )}
-                                <span className="mt-1 block text-[11px] text-blue-600 opacity-0 transition group-hover:opacity-100">
-                                  Search this pickup location
-                                </span>
-                              </span>
-
-                              {item.scheduled_time && (
-                                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs font-semibold tabular-nums text-slate-600">
-                                  <Icon name="clock" className="size-3.5" />
-                                  {item.scheduled_time.slice(0, 5)}
-                                </span>
-                              )}
-                            </button>
-                          </li>
-                        ))}
+                              </button>
+                            </li>
+                          );
+                        })}
                       </ol>
                     ) : (
-                      <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-                        Pickup stops have not been published.
+                      <p className="mt-4 rounded-xl bg-[#F7F7F7] p-4 text-sm text-[#737373]">
+                        Pickup stops have not been published yet.
                       </p>
                     )}
 
@@ -617,9 +744,12 @@ export default function Find() {
                         type="button"
                         onClick={() => toggleExpanded(route.id)}
                         aria-expanded={isExpanded}
-                        className="mt-1 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                        className="mt-1 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#E5E5E5] text-sm font-semibold text-[#525252] transition hover:border-[#A3A3A3] hover:bg-[#F7F7F7] hover:text-black"
                       >
-                        {isExpanded ? "Show fewer stops" : `Show all ${stops.length} stops`}
+                        {isExpanded
+                          ? "Show fewer stops"
+                          : `Show all ${stops.length} stops`}
+
                         <Icon
                           name="chevron"
                           className={`size-4 transition-transform ${
@@ -629,13 +759,14 @@ export default function Find() {
                       </button>
                     )}
 
-                    {/* Selectable bus details */}
-                    <div className="mt-6 border-t border-slate-100 pt-5">
-                      <h4 className="text-sm font-semibold text-slate-800">
-                        Choose a bus
+                    {/* BUS SELECTION */}
+                    <div className="mt-6 border-t border-[#EEEEEE] pt-5">
+                      <h4 className="text-sm font-semibold text-[#262626]">
+                        Available buses
                       </h4>
-                      <p className="mt-1 text-xs leading-5 text-slate-500">
-                        Select a bus to highlight its registration details.
+
+                      <p className="mt-1 text-xs leading-5 text-[#737373]">
+                        Select a bus to view its registration details.
                       </p>
 
                       {buses.length > 0 ? (
@@ -654,17 +785,24 @@ export default function Find() {
                                   }))
                                 }
                                 aria-pressed={active}
-                                className={`rounded-xl border px-3 py-2.5 text-left transition ${
+                                className={`min-w-0 rounded-xl border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#737373] focus-visible:ring-offset-2 ${
                                   active
-                                    ? "border-[#3157D5] bg-blue-50 text-blue-800 ring-2 ring-blue-500/10"
-                                    : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-slate-50"
+                                    ? "border-[#171717] bg-[#171717] text-white"
+                                    : "border-[#E5E5E5] bg-white text-[#525252] hover:border-[#A3A3A3] hover:bg-[#F7F7F7]"
                                 }`}
                               >
                                 <span className="flex items-center gap-2 text-xs font-semibold">
                                   <Icon name="bus" className="size-4" />
                                   {bus.bus_number}
                                 </span>
-                                <span className="mt-1 block text-[11px] text-slate-500">
+
+                                <span
+                                  className={`mt-1 block break-all text-[11px] ${
+                                    active
+                                      ? "text-[#D4D4D4]"
+                                      : "text-[#737373]"
+                                  }`}
+                                >
                                   {bus.registration_number}
                                 </span>
                               </button>
@@ -672,45 +810,51 @@ export default function Find() {
                           })}
                         </div>
                       ) : (
-                        <p className="mt-3 text-sm text-slate-500">
+                        <p className="mt-3 text-sm text-[#737373]">
                           No active buses listed.
                         </p>
                       )}
 
                       {chosenBus && (
-                        <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                        <div className="mt-4 rounded-2xl border border-[#E5E5E5] bg-[#F7F7F7] p-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-[#737373]">
                             Selected bus
                           </p>
-                          <p className="mt-2 font-semibold text-slate-900">
+
+                          <p className="mt-2 font-semibold text-[#171717]">
                             {chosenBus.bus_number}
                           </p>
-                          <p className="mt-1 text-sm text-slate-600">
+
+                          <p className="mt-1 text-sm text-[#525252]">
                             Registration: {chosenBus.registration_number}
                           </p>
-                          <p className="mt-2 text-xs leading-5 text-slate-500">
-                            Driver information and live location will be
-                            available here once connected to the relevant
-                            authorized APIs.
+
+                          <p className="mt-3 border-t border-[#E5E5E5] pt-3 text-xs leading-5 text-[#737373]">
+                            Driver details and live location can be shown
+                            here once connected to authorized APIs.
                           </p>
                         </div>
                       )}
                     </div>
 
-                    <div className="mt-5 flex items-center justify-between gap-3 rounded-2xl bg-[#F6F8FF] p-4">
+                    {/* STUDENT PORTAL CTA */}
+                    <div className="mt-5 flex flex-col gap-4 rounded-2xl bg-[#F5F5F5] p-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-800">
+                        <p className="text-sm font-semibold text-[#262626]">
                           Your transport, in one place
                         </p>
-                        <p className="mt-1 text-xs leading-5 text-slate-500">
+
+                        <p className="mt-1 text-xs leading-5 text-[#737373]">
                           Sign in for your student-specific information.
                         </p>
                       </div>
+
                       <Link
                         href="/login"
-                        className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#3157D5] px-3.5 py-2.5 text-xs font-semibold text-white transition hover:bg-blue-800 sm:text-sm"
+                        className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#171717] px-4 text-xs font-semibold text-white transition hover:bg-[#333333] sm:text-sm"
                       >
-                        Sign in <Icon name="arrow" className="size-4" />
+                        Sign in
+                        <Icon name="arrow" className="size-4" />
                       </Link>
                     </div>
                   </div>
@@ -720,34 +864,55 @@ export default function Find() {
           </div>
         )}
 
+        {/* BOTTOM HELP SECTION */}
         {!loading && !error && results.length > 0 && (
-          <div className="mt-8 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-semibold text-slate-900">
-                Need help with your bus allocation?
-              </p>
-              <p className="mt-1 text-sm leading-6 text-slate-500">
-                Sign in to view the services available to your student account.
-              </p>
+          <div className="mt-8 flex flex-col gap-5 rounded-3xl border border-[#E5E5E5] bg-white p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+            <div className="flex items-start gap-4">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#F5F5F5] text-[#171717]">
+                <Icon name="bus" className="size-5" />
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-[#171717]">
+                  Need help with bus allocation?
+                </h3>
+
+                <p className="mt-1 max-w-xl text-sm leading-6 text-[#737373]">
+                  Access your student account to view transport
+                  information available to you.
+                </p>
+              </div>
             </div>
+
             <Link
               href="/login"
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-800"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-[#E5E5E5] px-4 text-sm font-semibold text-[#262626] transition hover:border-[#A3A3A3] hover:bg-[#F5F5F5]"
             >
-              Open student portal <Icon name="arrow" />
+              Open student portal
+              <Icon name="arrow" className="size-4" />
             </Link>
           </div>
         )}
       </section>
 
-      <footer className="mx-auto mt-16 max-w-7xl border-t border-slate-200 px-5 pt-6 sm:px-8 lg:px-12">
-        <div className="flex flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            <span className="font-bold tracking-wide text-slate-800">
+      {/* FOOTER */}
+      <footer className="mx-auto mt-16 max-w-7xl border-t border-[#E5E5E5] px-5 pt-6 sm:px-8 lg:px-12">
+        <div className="flex flex-col gap-3 text-xs text-[#737373] sm:flex-row sm:items-center sm:justify-between">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 self-start"
+          >
+            <span className="flex size-7 items-center justify-center rounded-lg bg-[#171717] text-white">
+              <Icon name="bus" className="size-4" />
+            </span>
+
+            <span className="font-bold tracking-[.12em] text-[#171717]">
               OGI RIDE
-            </span>{" "}
-            · College transport made easier.
-          </p>
+            </span>
+          </Link>
+
+          <p>College transport, made simpler.</p>
+
           <p>Pickup times are scheduled and may change.</p>
         </div>
       </footer>
